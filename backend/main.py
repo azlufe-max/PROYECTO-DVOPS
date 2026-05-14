@@ -6,6 +6,7 @@ Spec: SPEC_TECNICA.md §§ 2, 3, 4
 """
 
 import json
+import logging
 import sys
 from typing import List
 
@@ -16,6 +17,40 @@ from sqlalchemy.orm import Session
 from database import engine, get_db, Base
 from models import Visitante
 from schemas import CheckinRequest, CheckinResponse
+
+
+# ---------------------------------------------------------------
+# Logging Estructurado en JSON – Cloud-Native (Spec § 4)
+# ---------------------------------------------------------------
+class JSONFormatter(logging.Formatter):
+    """Formatea cada registro de log como una línea JSON válida."""
+
+    def format(self, record: logging.LogRecord) -> str:  # type: ignore[override]
+        log_entry = {
+            "level": record.levelname,
+            "event": getattr(record, "event", record.getMessage()),
+        }
+        # Campos extra opcionales (user, source, status)
+        for field in ("user", "source", "status"):
+            if hasattr(record, field):
+                log_entry[field] = getattr(record, field)
+        return json.dumps(log_entry, ensure_ascii=False)
+
+
+def _configure_logging() -> logging.Logger:
+    """Configura el logger raíz para emitir JSON a STDOUT."""
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(JSONFormatter())
+
+    root = logging.getLogger()
+    root.handlers.clear()          # evita handlers duplicados en recarga de uvicorn
+    root.addHandler(handler)
+    root.setLevel(logging.INFO)
+
+    return logging.getLogger("guest_pass")
+
+
+logger = _configure_logging()
 
 # ---------------------------------------------------------------
 # Crear tablas si no existen (modo desarrollo; producción usa migrations)
@@ -47,15 +82,21 @@ app.add_middleware(
 # Helper: log JSON estructurado → STDOUT (Spec § 4)
 # ---------------------------------------------------------------
 def log_checkin(nombre: str, origen: str, success: bool = True) -> None:
-    """Imprime el log en el formato exacto definido en la Spec § 4."""
-    entry = {
-        "level": "INFO" if success else "ERROR",
+    """
+    Emite un log con el formato exacto de la Spec § 4:
+      {"level": "INFO/ERROR", "event": "visitor_checkin",
+       "user": "...", "source": "...", "status": "success/failure"}
+    """
+    extra = {
         "event": "visitor_checkin",
         "user": nombre,
         "source": origen,
-        "status": "success" if success else "error",
+        "status": "success" if success else "failure",
     }
-    print(json.dumps(entry, ensure_ascii=False), flush=True, file=sys.stdout)
+    if success:
+        logger.info("visitor_checkin", extra=extra)
+    else:
+        logger.error("visitor_checkin", extra=extra)
 
 
 # ---------------------------------------------------------------
