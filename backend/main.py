@@ -1,14 +1,16 @@
 """
 main.py – Punto de entrada de la API Guest-Pass.
-FastAPI · Puerto 8000 · Endpoint POST /api/v1/checkin
+FastAPI · Puerto 8000
 
 Spec: SPEC_TECNICA.md §§ 2, 3, 4
 """
 
 import json
 import sys
+from typing import List
 
 from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
 from database import engine, get_db, Base
@@ -29,6 +31,17 @@ app = FastAPI(
     version="1.0.0",
 )
 
+# ---------------------------------------------------------------
+# CORS – permite que el frontend web consuma la API
+# ---------------------------------------------------------------
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 # ---------------------------------------------------------------
 # Helper: log JSON estructurado → STDOUT (Spec § 4)
@@ -46,7 +59,7 @@ def log_checkin(nombre: str, origen: str, success: bool = True) -> None:
 
 
 # ---------------------------------------------------------------
-# Endpoint principal
+# POST /api/v1/checkin – Registrar visitante
 # ---------------------------------------------------------------
 @app.post(
     "/api/v1/checkin",
@@ -70,9 +83,7 @@ def checkin(payload: CheckinRequest, db: Session = Depends(get_db)):
         db.commit()
         db.refresh(visitante)
 
-        # Log obligatorio – formato exacto de Spec § 4
         log_checkin(nombre=visitante.nombre, origen=visitante.origen, success=True)
-
         return visitante
 
     except Exception as exc:
@@ -85,8 +96,30 @@ def checkin(payload: CheckinRequest, db: Session = Depends(get_db)):
 
 
 # ---------------------------------------------------------------
+# GET /api/v1/checkins – Listar todos los visitantes
+# ---------------------------------------------------------------
+@app.get(
+    "/api/v1/checkins",
+    response_model=List[CheckinResponse],
+    status_code=status.HTTP_200_OK,
+    summary="Obtener listado de visitantes registrados",
+)
+def list_checkins(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    """Retorna todos los registros de visitantes ordenados por fecha descendente."""
+    visitantes = (
+        db.query(Visitante)
+        .order_by(Visitante.fecha_registro.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+    return visitantes
+
+
+# ---------------------------------------------------------------
 # Health-check (útil para Kubernetes/Docker readiness probes)
 # ---------------------------------------------------------------
 @app.get("/health", status_code=status.HTTP_200_OK, include_in_schema=False)
 def health():
     return {"status": "ok"}
+
