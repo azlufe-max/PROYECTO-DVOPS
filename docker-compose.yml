@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  # En docker-compose.yml
+  db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=${DB_USER} # Se llena desde Infisical
+      - POSTGRES_PASSWORD=${DB_PASS} # Se llena desde Infisical
+      - POSTGRES_DB=${DB_NAME} # Se llena desde Infisical
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - checkin_network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: guest_pass_backend
+    ports:
+      - "8000:8000"
+    environment:
+      # Usamos las variables para construir la URL dinámicamente
+      - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
+    depends_on:
+      - db
+    networks:
+      - checkin_network
+
+  frontend:
+    build:
+      context: ./frontend-web
+      dockerfile: Dockerfile
+    container_name: guest_pass_frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - checkin_network
+
+volumes:
+  postgres_data:
+
+networks:
+  checkin_network:
+    driver: bridge
