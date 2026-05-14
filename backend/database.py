@@ -7,14 +7,13 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.orm import sessionmaker
 
+import os
+
 # ---------------------------------------------------------------
 # Cadena de conexión
 # Host = nombre del contenedor Terraform (guest_pass_db)
 # ---------------------------------------------------------------
-DATABASE_URL = (
-    "postgresql://admin:ChangeMe123!@guest_pass_db:5432/guestpass"
-)
-
+DATABASE_URL = os.environ.get("DATABASE_URL")
 engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

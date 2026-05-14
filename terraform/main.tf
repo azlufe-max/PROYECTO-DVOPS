@@ -30,9 +30,9 @@ resource "docker_container" "postgres_db" {
   }
 
   env = [
-    "POSTGRES_DB=guestpass",
-    "POSTGRES_USER=admin",
-    "POSTGRES_PASSWORD=ChangeMe123!"
+    "POSTGRES_DB=${var.db_name}",
+    "POSTGRES_USER=${var.db_user}",
+    "POSTGRES_PASSWORD=${var.db_password}"
   ]
 
   ports {
@@ -68,6 +68,18 @@ resource "docker_container" "backend_container" {
   depends_on = [docker_container.postgres_db]
 
   env = [
-    "DATABASE_URL=postgresql://admin:ChangeMe123!@guest_pass_db:5432/guestpass"
+    "DATABASE_URL=postgresql://${var.db_user}:${var.db_password}@guest_pass_db:5432/${var.db_name}"
   ]
+}
+variable "db_user" {
+  type = string
+}
+
+variable "db_password" {
+  type      = string
+  sensitive = true
+}
+
+variable "db_name" {
+  type = string
 }

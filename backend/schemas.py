@@ -7,12 +7,12 @@ from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field
-
+from typing import Optional
 
 class CheckinRequest(BaseModel):
     nombre: str = Field(..., max_length=100)
-    empresa: str | None = Field(default=None, max_length=100)
-    motivo: str | None = None
+    empresa: Optional[str] = Field(default=None, max_length=100)
+    motivo: Optional[str] = Field(default=None, max_length=200)
     origen: Literal["web", "local"]
     timestamp: datetime  # ISO 8601 validado automáticamente por Pydantic
 
@@ -20,8 +20,8 @@ class CheckinRequest(BaseModel):
 class CheckinResponse(BaseModel):
     id: int
     nombre: str
-    empresa: str | None
-    motivo: str | None
+    empresa: Optional[str] = Field(default=None, max_length=100)
+    motivo: Optional[str] = Field(default=None, max_length=100)
     origen: str
     fecha_registro: datetime
 
